@@ -31,3 +31,48 @@ Al no haber usado la opción de tener una IP fija cada vez que apagas las máqui
 
 
 ## 2da mejora solución: introducción a los WAF - Web Application Firewall (firewall capa 7) - 4 puntos
+
+### Convertir nuestro servidor web para que no tenga ip pública, y montar un balanceador con servicio de WAF haciendo HTTPS offloading. ¿Qué ventajas e incovenientes tiene hacer https offloading en el balanceador? ¿Qué pasos adicionales has tenido que hacer para que la máquina pueda salir a internet para poder instalar el servidor nginx?
+### Proteger nuestra máquina de ataques SQL Injection, Cross Syte Scripting y restringir el tráfico sólo a paises de confianza de la UE implantando un WAF a nuestro balanceador.
+
+#### 1) Para esta mejora vamos a cambiar ciertas cosas de nuestra arquitectura. Lo primero que haremos será crear una nueva instancia de máquina virtual donde alojar el servidor. Esto es necesario ya que la nueva máquina debe no tener IP pública ya que para hacerle llegar la petición http esto se hará mediante un balanceador de carga con servicio WAF haciendo HTTPS offloading.
+##### 1.1) **Ventajas del https offloading**
+   ###### 1.1.1) Quita carga computacional de cifrado y descifrado de las peticiones https al servidor.   
+   ###### 1.1.2) Al descifrar las peticiones en el balanceador esto puede permitir un mayor rendimiento haciendo uso de compresión de datos o caching.
+   ###### 1.1.3) Obtenemos una mayor escalabilidad. Se puede redirigir inteligentemente el tráfico a las diferentes máquinas en las que podamos tener un servicio y de esta manera podemos manejar un mayor número de solicitudes concurrentes.
+##### 1.2) **Desventajas del https offloading**
+   ###### 1.2.1) Si algún atacante consigue entrar en la subred privada conseguirá acceso a toda la información limpia sin cifrar.
+   ###### 1.2.2) Mayor coste de hardware, esto puede implicar que el balanceador de carga necesite ciertas funciones específicas para manejar el cifrado y descifrado (sobretodo la sobrecarga computacional que supone).
+#### 2) Configuramos la nueva máquina donde irá alojado el servidor, en este caso solo tendrá la IP privada de nuestra subnet, la 10.0.0.4.    ![nuevo_server](https://github.com/janeirosanti/ASR/assets/47990780/4965f9d0-5078-4f1d-be08-99cf77e1a1c8)
+
+#### 3) En cuanto a las reglas de firewall, al contrario que antes, ahora no debemos permitir que el tráfico http de fuera de nuestra intranet llegue al puerto 80 de nuestro servidor por lo que únicamente añadiremos el tag de **ssh interno** visto anteriormente a nuestra máquina servidor.
+#### 4) Como el servidor no tiene IP pública y no posee acceso a internet debemos habilitar el NAT.
+![cloud_nat](https://github.com/janeirosanti/ASR/assets/47990780/e792a575-fbcf-414b-bc74-bae2c0538e43)
+#### 5) Ahora debemos generar los certificados para poder firmar peticiones https. Para ello debemos generar nuestro propio .csr y nuestra clave -key. ![clave_privada y csr](https://github.com/janeirosanti/ASR/assets/47990780/2c2e71db-6dae-410a-b26a-2dffcf5cbd0d)
+##### 5.1) En este momento debemos 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
