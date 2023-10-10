@@ -1,0 +1,101 @@
+- name: Configure GCP Instances and Firewall Rules
+  hosts: localhost
+  gather_facts: no
+  vars:
+    gcp_project: practica4-400806
+    gcp_cred_kind: serviceaccount
+    gcp_cred_file: "/home/santi/Documents/asr/practica4/ansible/practica4-400806-1af357bc295e.json"
+    region: "europe-west1"
+    zone: "europe-west1-d"
+    machine_type: "n1-standard-1"
+    image: "projects/centos-cloud/global/images/centos-7-v20230912"
+    ansible_ssh_common_args: '-o StrictHostChecking=no'
+    ansible_timeout: 60 
+
+  tasks:
+   - name: Create private IP address to the VM instance
+     gcp_compute_address:
+       name: "maquina-prueba-ip"
+       region: "{{ region }}"
+       project: "{{ gcp_project }}"
+       service_account_file: "{{ gcp_cred_file }}"
+       auth_kind: "{{ gcp_cred_kind }}"
+     register: gce_ip
+
+   - name: Create firewall rules for HTTP
+     gcp_compute_firewall:
+       name: allow-http
+       project: "{{ gcp_project }}"
+       auth_kind: "{{ gcp_cred_kind }}"
+       service_account_file: "{{ gcp_cred_file }}"
+       allowed:
+         - ip_protocol: tcp
+           ports:
+             - "80"
+       source_ranges:
+         - "0.0.0.0/0"  # Permitir tráfico desde cualquier origen
+
+   - name: Create firewall rules for HTTPS
+     gcp_compute_firewall:
+       name: allow-https
+       project: "{{ gcp_project }}"
+       auth_kind: "{{ gcp_cred_kind }}"
+       service_account_file: "{{ gcp_cred_file }}"
+       allowed:
+         - ip_protocol: tcp
+           ports:
+             - "443"
+       source_ranges:
+          - "0.0.0.0/0"  # Permitir tráfico desde cualquier origen
+
+   - name: Create firewall rules for SSH
+     gcp_compute_firewall:
+       name: allow-ssh
+       project: "{{ gcp_project }}"
+       auth_kind: "{{ gcp_cred_kind }}"
+       service_account_file: "{{ gcp_cred_file }}"
+       allowed:
+         - ip_protocol: tcp
+           ports:
+             - "22"
+       source_ranges:
+         - "0.0.0.0/0"  # Permitir tráfico desde cualquier origen
+
+   - name: Bring up the instance in the zone
+     gcp_compute_instance:
+       name: "maquina-prueba"
+       machine_type: "{{ machine_type }}"
+       disks:
+         - auto_delete: true
+           boot: true
+           initialize_params:
+             source_image: "{{ image }}"
+       network_interfaces:
+         - access_configs:
+             - name: External NAT  # public IP
+               nat_ip: "{{ gce_ip }}"
+               type: ONE_TO_ONE_NAT
+       tags:
+         items: 
+           - http-server
+           - https-server
+           - ssh-externo
+
+       zone: "{{ zone }}"
+       project: "{{ gcp_project }}"
+       service_account_file: "{{ gcp_cred_file }}"
+       auth_kind: "{{ gcp_cred_kind }}"
+     register: gce 
+
+  post_tasks:
+    - name: Save host data
+      add_host:
+        hostname: "{{ gce_ip.address }}"
+        groups: gce_instances_ips
+
+- name: Deploy httpd and custom html page 
+  hosts: gce_instances_ips
+  become: yes   # to run as root
+  become_method: sudo
+  roles:
+    - simple-web
